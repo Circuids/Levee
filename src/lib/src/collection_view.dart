@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 import 'page.dart';
@@ -147,8 +146,7 @@ class LeveeCollectionView<T, K> extends StatefulWidget {
       _LeveeCollectionViewState<T, K>();
 }
 
-class _LeveeCollectionViewState<T, K>
-    extends State<LeveeCollectionView<T, K>> {
+class _LeveeCollectionViewState<T, K> extends State<LeveeCollectionView<T, K>> {
   final ScrollController _scrollController = ScrollController();
 
   @override

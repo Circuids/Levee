@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -333,8 +332,8 @@ class Paginator<T, K> extends ChangeNotifier {
   /// Cache-only policy: Only use cache, never fetch from network.
   Future<void> _loadCacheOnly(PageQuery<K> query, bool isInitial) async {
     if (cache == null) {
-      _handleError(
-          Exception('Cache-only policy requires a cache store to be configured'));
+      _handleError(Exception(
+          'Cache-only policy requires a cache store to be configured'));
       return;
     }
 
@@ -440,5 +439,4 @@ class Paginator<T, K> extends ChangeNotifier {
     final jsonString = jsonEncode(keyParts);
     return base64Encode(utf8.encode(jsonString));
   }
-
 }

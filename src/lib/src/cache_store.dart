@@ -101,8 +101,8 @@ class MemoryCacheStore<T, K> implements CacheStore<T, K> {
 
   @override
   Future<bool> has(String key) async {
-    final value = await get(
-        key, PageQuery<K>(pageSize: 0)); // Dummy query for has check
+    final value =
+        await get(key, PageQuery<K>(pageSize: 0)); // Dummy query for has check
     return value != null;
   }
 }

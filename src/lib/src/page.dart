@@ -116,6 +116,7 @@ class PageQuery<K> {
 /// ## Usage in UI
 ///
 /// ```dart
+// ignore: unintended_html_in_doc_comment
 /// LeveeBuilder<Product>(
 ///   paginator: paginator,
 ///   builder: (context, state) {

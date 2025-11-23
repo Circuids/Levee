@@ -217,8 +217,7 @@ void main() {
   });
 
   group('LeveeCollectionView Widget Tests', () {
-    testWidgets('renders items using itemBuilder',
-        (WidgetTester tester) async {
+    testWidgets('renders items using itemBuilder', (WidgetTester tester) async {
       final dataSource = MockDataSource([
         [TestItem(1, 'Item 1'), TestItem(2, 'Item 2')],
       ]);

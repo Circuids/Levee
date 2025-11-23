@@ -179,7 +179,7 @@ void main() {
         pageSize: 2,
         cachePolicy: CachePolicy.cacheFirst,
       );
-      
+
       await paginator2.loadInitial();
       // Should succeed with network (callCount=2)
       expect(paginator2.state.items.length, 1);
@@ -604,8 +604,7 @@ void main() {
 
     test('updateFilter reloads data with new filter', () async {
       final dataSource = MockDataSource<TestItem, int>((query) async {
-        final filterValue =
-            query.filter?.filters.firstOrNull?.value ?? 'none';
+        final filterValue = query.filter?.filters.firstOrNull?.value ?? 'none';
         return PageData<TestItem, int>(
           items: [TestItem(0, 'Item with filter: $filterValue')],
           nextPageKey: null,

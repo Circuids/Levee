@@ -28,7 +28,7 @@ import 'package:collection/collection.dart';
 /// @override
 /// Future<PageData<Product, int>> fetch(PageQuery<int> query) async {
 ///   var url = Uri.parse('$baseUrl/products');
-///   
+///
 ///   // Convert filters to query parameters
 ///   final params = <String, String>{};
 ///   if (query.filter != null) {
@@ -37,7 +37,7 @@ import 'package:collection/collection.dart';
 ///       params['${filter.field}_op'] = filter.operation.value;
 ///     }
 ///   }
-///   
+///
 ///   url = url.replace(queryParameters: params);
 ///   // ... fetch and return PageData
 /// }
@@ -315,7 +315,7 @@ class FilterField {
 /// @override
 /// Future<PageData<Product, int>> fetch(PageQuery<int> query) async {
 ///   final filters = query.filter?.filters ?? [];
-///   
+///
 ///   for (final filter in filters) {
 ///     switch (filter.operation) {
 ///       case FilterOperation.equals:
@@ -492,7 +492,7 @@ class FilterOperation {
 /// @override
 /// Future<PageData<Product, int>> fetch(PageQuery<int> query) async {
 ///   var queryBuilder = database.collection('products');
-///   
+///
 ///   // Apply sorts in order
 ///   final sorts = query.filter?.sorting ?? [];
 ///   for (final sort in sorts) {
@@ -501,7 +501,7 @@ class FilterOperation {
 ///       descending: sort.descending,
 ///     );
 ///   }
-///   
+///
 ///   // ... execute query
 /// }
 /// ```
