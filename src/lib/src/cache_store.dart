@@ -26,7 +26,7 @@ abstract class CacheStore<T, K> {
   /// - Advanced stores: use query to fetch from backend cache (e.g., Firestore)
   ///
   /// Returns null if cache miss or expired.
-  Future<Page<T, K>?> get(String key, PageQuery<K> query);
+  Future<PageData<T, K>?> get(String key, PageQuery<K> query);
 
   /// Store page with optional TTL.
   ///
@@ -35,7 +35,7 @@ abstract class CacheStore<T, K> {
   /// - Advanced stores: extract metadata for backend cache tracking
   ///
   /// [ttl] specifies how long the cached page should be considered valid.
-  Future<void> put(String key, PageQuery<K> query, Page<T, K> value,
+  Future<void> put(String key, PageQuery<K> query, PageData<T, K> value,
       {Duration? ttl});
 
   /// Remove cached value by key.
@@ -69,7 +69,7 @@ class MemoryCacheStore<T, K> implements CacheStore<T, K> {
   final Map<String, _CacheEntry<T, K>> _cache = {};
 
   @override
-  Future<Page<T, K>?> get(String key, PageQuery<K> query) async {
+  Future<PageData<T, K>?> get(String key, PageQuery<K> query) async {
     final entry = _cache[key];
     if (entry == null) return null;
 
@@ -83,7 +83,7 @@ class MemoryCacheStore<T, K> implements CacheStore<T, K> {
   }
 
   @override
-  Future<void> put(String key, PageQuery<K> query, Page<T, K> value,
+  Future<void> put(String key, PageQuery<K> query, PageData<T, K> value,
       {Duration? ttl}) async {
     final expiresAt = ttl != null ? DateTime.now().add(ttl) : null;
     _cache[key] = _CacheEntry(value, expiresAt);
@@ -111,6 +111,6 @@ class MemoryCacheStore<T, K> implements CacheStore<T, K> {
 class _CacheEntry<T, K> {
   const _CacheEntry(this.page, this.expiresAt);
 
-  final Page<T, K> page;
+  final PageData<T, K> page;
   final DateTime? expiresAt;
 }

@@ -29,7 +29,7 @@
 library;
 
 // Core contracts
-export 'src/page.dart' show Page, PageQuery, PageStatus;
+export 'src/page.dart' show PageData, PageQuery, PageStatus;
 export 'src/filter.dart'
     show FilterQuery, FilterField, FilterOperation, SortField;
 

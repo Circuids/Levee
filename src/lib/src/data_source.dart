@@ -45,7 +45,7 @@ abstract class DataSource<T, K> {
   /// Implementations should:
   /// - Interpret [FilterQuery] for their backend
   /// - Handle pagination using [pageKey] (offset, cursor, etc)
-  /// - Return [Page] with items and next page key
+  /// - Return [PageData] with items and next page key
   /// - Throw exceptions for errors (Paginator will handle retry if configured)
   ///
   /// The [query] contains:
@@ -82,5 +82,5 @@ abstract class DataSource<T, K> {
   ///   );
   /// }
   /// ```
-  Future<Page<T, K>> fetch(PageQuery<K> query);
+  Future<PageData<T, K>> fetch(PageQuery<K> query);
 }

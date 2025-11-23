@@ -1,7 +1,7 @@
 name: levee
 description: A lean, backend-agnostic pagination engine for Flutter with cache-first support, filtering, sorting, and retry policies.
 version: 1.0.0
-homepage: https://github.com/yourusername/levee
+homepage: https://github.com/Circuids/Levee
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

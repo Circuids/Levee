@@ -10,21 +10,12 @@ import 'data_source.dart';
 import 'filter.dart';
 import 'page.dart';
 
-/// Optional retry configuration (null by default).
+/// Retry configuration for handling transient failures.
 ///
 /// Example:
 /// ```dart
-/// // Basic retry with 3 attempts
-/// RetryPolicy(maxAttempts: 3)
-///
-/// // Exponential backoff
-/// RetryPolicy.exponential(maxAttempts: 5)
-///
-/// // Conditional retry
-/// RetryPolicy(
-///   maxAttempts: 3,
-///   retryIf: (e) => e is SocketException || e is TimeoutException,
-/// )
+/// RetryPolicy(maxAttempts: 3)  // Basic retry
+/// RetryPolicy.exponential(maxAttempts: 5)  // Exponential backoff
 /// ```
 class RetryPolicy {
   /// Creates a retry policy with the given configuration.
@@ -49,10 +40,9 @@ class RetryPolicy {
 
   /// Helper constructor for exponential backoff retry policy.
   const RetryPolicy.exponential({
-    int maxAttempts = 3,
+    this.maxAttempts = 3,
     Duration initialDelay = const Duration(seconds: 1),
-  })  : maxAttempts = maxAttempts,
-        delay = initialDelay,
+  })  : delay = initialDelay,
         maxDelay = const Duration(seconds: 30),
         retryIf = null;
 }
@@ -72,10 +62,9 @@ enum CachePolicy {
   networkOnly,
 }
 
-/// Immutable state with explicit flags for transparency.
+/// Immutable pagination state.
 ///
-/// All pagination state is exposed through this class, making it easy to
-/// understand what's happening at any given time.
+/// Exposes current items, status, errors, and loading flags.
 class PageState<T> {
   /// Creates a page state with the given values.
   const PageState({
@@ -141,9 +130,6 @@ class PageState<T> {
 
 /// Core pagination engine with state management.
 ///
-/// [T] is the type of items being paginated.
-/// [K] is the type of the page key (int, String, DocumentSnapshot, etc).
-///
 /// Example:
 /// ```dart
 /// final paginator = Paginator<Product, int>(
@@ -151,23 +137,11 @@ class PageState<T> {
 ///   cache: MemoryCacheStore(),
 ///   pageSize: 20,
 ///   cachePolicy: CachePolicy.cacheFirst,
-///   retryPolicy: RetryPolicy(maxAttempts: 3),
-///   initialFilter: FilterQuery(
-///     filters: [FilterField(field: 'status', value: 'active')],
-///   ),
 /// );
 ///
-/// // Load initial page
-/// await paginator.loadInitial();
-///
-/// // Load next page
-/// await paginator.loadNext();
-///
-/// // Apply filter
-/// await paginator.updateFilter(FilterQuery(...));
-///
-/// // Refresh data
-/// await paginator.refresh();
+/// await paginator.loadInitial();  // Load first page
+/// await paginator.loadNext();     // Load next page
+/// await paginator.refresh();      // Refresh data
 /// ```
 class Paginator<T, K> extends ChangeNotifier {
   /// Creates a paginator with the given configuration.
@@ -298,7 +272,7 @@ class Paginator<T, K> extends ChangeNotifier {
   /// Cache-first policy: Show cache immediately, fetch network in background.
   Future<void> _loadCacheFirst(PageQuery<K> query, bool isInitial) async {
     final cacheKey = _generateCacheKey(query);
-    Page<T, K>? cachedPage;
+    PageData<T, K>? cachedPage;
 
     // Try to get from cache first
     if (cache != null) {
@@ -385,7 +359,7 @@ class Paginator<T, K> extends ChangeNotifier {
   }
 
   /// Fetch a page from the data source with optional retry logic.
-  Future<Page<T, K>> _fetchWithRetry(PageQuery<K> query) async {
+  Future<PageData<T, K>> _fetchWithRetry(PageQuery<K> query) async {
     if (retryPolicy == null) {
       return await source.fetch(query);
     }
@@ -427,7 +401,7 @@ class Paginator<T, K> extends ChangeNotifier {
 
   /// Update state from a fetched page.
   void _updateStateFromPage(
-    Page<T, K> page, {
+    PageData<T, K> page, {
     required bool isFromCache,
     required bool isInitial,
     bool clearRefreshing = false,
@@ -467,8 +441,4 @@ class Paginator<T, K> extends ChangeNotifier {
     return base64Encode(utf8.encode(jsonString));
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }
