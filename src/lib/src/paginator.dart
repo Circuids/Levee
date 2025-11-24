@@ -439,4 +439,67 @@ class Paginator<T, K> extends ChangeNotifier {
     final jsonString = jsonEncode(keyParts);
     return base64Encode(utf8.encode(jsonString));
   }
+
+  /// Updates an item in the current list.
+  ///
+  /// Finds the first item matching [predicate] and replaces it with [item].
+  /// This is useful when you've already updated the backend and want to
+  /// reflect the change in the UI without calling [refresh].
+  ///
+  /// Example:
+  /// ```dart
+  /// // After updating Firestore
+  /// await postDoc.update({'likes': likes + 1});
+  /// paginator.updateItem(
+  ///   post.copyWith(likes: likes + 1),
+  ///   (p) => p.id == post.id,
+  /// );
+  /// ```
+  void updateItem(T item, bool Function(T) predicate) {
+    final items = List<T>.from(_state.items);
+    final index = items.indexWhere(predicate);
+    if (index != -1) {
+      items[index] = item;
+      _state = _state.copyWith(items: items);
+      notifyListeners();
+    }
+  }
+
+  /// Removes an item from the current list.
+  ///
+  /// Removes all items matching [predicate]. This is useful when you've
+  /// already deleted from the backend and want to update the UI without
+  /// calling [refresh].
+  ///
+  /// Example:
+  /// ```dart
+  /// // After deleting from Firestore
+  /// await postDoc.delete();
+  /// paginator.removeItem((post) => post.id == postId);
+  /// ```
+  void removeItem(bool Function(T) predicate) {
+    final items = List<T>.from(_state.items);
+    items.removeWhere(predicate);
+    _state = _state.copyWith(items: items);
+    notifyListeners();
+  }
+
+  /// Inserts an item at the specified position (default: top of list).
+  ///
+  /// This is useful when you've created a new item in the backend and want
+  /// to add it to the UI without calling [refresh].
+  ///
+  /// Example:
+  /// ```dart
+  /// // After creating in Firestore
+  /// final newPost = await postsCollection.add(data);
+  /// paginator.insertItem(Post.fromFirestore(newPost), position: 0);
+  /// ```
+  void insertItem(T item, {int position = 0}) {
+    final items = List<T>.from(_state.items);
+    final clampedPos = position.clamp(0, items.length);
+    items.insert(clampedPos, item);
+    _state = _state.copyWith(items: items);
+    notifyListeners();
+  }
 }

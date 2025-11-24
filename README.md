@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="src/logo.png" alt="Fairy Logo" width="300"/>
+  <img src="src/logo.png" alt="Levee Logo" width="300"/>
 
 
   [![pub package](https://img.shields.io/pub/v/levee.svg)](https://pub.dev/packages/levee)
@@ -50,7 +50,7 @@
 
 ```yaml
 dependencies:
-  levee: ^0.5.0
+  levee: ^0.6.0
 ```
 
 ### 2. Define Your Data Source
@@ -99,11 +99,11 @@ class UserDataSource implements DataSource<User, int> {
 
 ```dart
 final paginator = Paginator<User, int>(
-  dataSource: UserDataSource('https://api.example.com'),
-  cacheStore: MemoryCacheStore<User, int>(ttl: Duration(minutes: 5)),
-  initialQuery: PageQuery(key: 1, pageSize: 20),
+  source: UserDataSource('https://api.example.com'),
+  cache: MemoryCacheStore<User, int>(),
+  pageSize: 20,
   cachePolicy: CachePolicy.cacheFirst,
-  maxRetries: 3,
+  retryPolicy: RetryPolicy(maxAttempts: 3),
 );
 ```
 
@@ -149,10 +149,39 @@ class UserListScreen extends StatelessWidget {
 ```dart
 LeveeCollectionView<User, int>(
   paginator: paginator,
-  itemBuilder: (context, user) => UserTile(user: user),
-  loadingBuilder: (context) => Center(child: CircularProgressIndicator()),
-  errorBuilder: (context, error) => ErrorWidget(error: error),
-  emptyBuilder: (context) => Center(child: Text('No users found')),
+  itemBuilder: (context, user) => ListTile(
+    leading: CircleAvatar(child: Text(user.name[0])),
+    title: Text(user.name),
+    subtitle: Text(user.email),
+    trailing: Icon(Icons.chevron_right),
+  ),
+  loadingBuilder: (context) => Center(
+    child: CircularProgressIndicator(),
+  ),
+  errorBuilder: (context, error) => Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.error_outline, size: 48, color: Colors.red),
+        SizedBox(height: 16),
+        Text('Error: $error'),
+        ElevatedButton(
+          onPressed: () => paginator.refresh(),
+          child: Text('Retry'),
+        ),
+      ],
+    ),
+  ),
+  emptyBuilder: (context) => Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.inbox_outlined, size: 48, color: Colors.grey),
+        SizedBox(height: 16),
+        Text('No users found'),
+      ],
+    ),
+  ),
 )
 ```
 
@@ -176,22 +205,79 @@ paginator.updateCachePolicy(CachePolicy.networkFirst);
 
 ---
 
-## Retry Logic 
+## Retry Logic 🔄
 
 Levee includes exponential backoff retry for transient failures:
 
 ```dart
 final paginator = Paginator<User, int>(
-  dataSource: userDataSource,
-  maxRetries: 3, // Default: 3
-  // Retries at 2^0, 2^1, 2^2 seconds (1s, 2s, 4s)
+  source: userDataSource,
+  retryPolicy: RetryPolicy(
+    maxAttempts: 3,
+    delay: Duration(seconds: 1),
+    maxDelay: Duration(seconds: 30),
+  ),
 );
 ```
 
 **Retry Behavior:**
-- Attempts: `maxRetries + 1` (initial + retries)
-- Delays: `2^attempt` seconds (exponential backoff)
-- Errors: Only network errors trigger retry, not business logic errors
+- Attempts: `maxAttempts` (default: 3)
+- Delays: Exponential backoff (1s, 2s, 4s, ...)
+- Max delay: Capped at `maxDelay` (default: 30s)
+- Conditional: Use `retryIf` to retry only on specific errors
+
+---
+
+## List Mutations ✏️
+
+Update the paginated list instantly without refetching from the backend. Perfect for Firestore or when you already have the updated data in hand.
+
+### updateItem
+
+Update an existing item in the list:
+
+```dart
+// After updating Firestore
+await postDoc.update({'likes': likes + 1});
+paginator.updateItem(
+  post.copyWith(likes: likes + 1),
+  (p) => p.id == post.id,
+);
+// UI updates instantly, no network call needed
+```
+
+### removeItem
+
+Remove an item from the list:
+
+```dart
+// After deleting from Firestore
+await postDoc.delete();
+paginator.removeItem((post) => post.id == deletedPostId);
+// Item disappears from UI immediately
+```
+
+### insertItem
+
+Insert a new item into the list:
+
+```dart
+// After creating in Firestore
+final newPost = await postsCollection.add(postData);
+paginator.insertItem(
+  Post.fromFirestore(newPost),
+  position: 0, // Add to top (default)
+);
+// New item appears instantly
+```
+
+**Why use mutations?**
+- ⚡ **Instant UI updates** - No waiting for network calls
+- 💰 **Save money** - Avoid expensive Firestore reads after mutations
+- 🎯 **Better UX** - Immediate feedback for user actions
+- 🧠 **Smart** - You already have the data after create/update/delete
+
+**Note:** These methods only update the local list. They don't sync with the backend—you should call them **after** your backend operation succeeds.
 
 ---
 
@@ -465,24 +551,29 @@ class SQLiteDataSource implements DataSource<Note, int> {
 ```dart
 class Paginator<T, K> extends ChangeNotifier {
   Paginator({
-    required DataSource<T, K> dataSource,
-    required PageQuery<K> initialQuery,
-    CacheStore<T, K>? cacheStore,
+    required DataSource<T, K> source,
+    PageQuery<K> initialQuery,
+    CacheStore<T, K>? cache,
+    int pageSize = 20,
     CachePolicy cachePolicy = CachePolicy.cacheFirst,
-    int maxRetries = 3,
+    RetryPolicy? retryPolicy,
+    FilterQuery? initialFilter,
   });
 
-  // State Accessors
-  List<PageData<T, K>> get pages;
-  bool get isLoading;
-  bool get hasError;
-  Object? get error;
-  bool get hasMore;
+  // State
+  PageState<T> get state;
 
   // Actions
-  Future<void> loadNextPage();
-  Future<void> refresh();
-  void updateCachePolicy(CachePolicy policy);
+  Future<void> loadInitial();
+  Future<void> loadNext();
+  Future<void> refresh({bool clearCache = true});
+  Future<void> updateFilter(FilterQuery? filter);
+  
+  // List Mutations
+  void updateItem(T item, bool Function(T) predicate);
+  void removeItem(bool Function(T) predicate);
+  void insertItem(T item, {int position = 0});
+  
   void dispose();
 }
 ```
