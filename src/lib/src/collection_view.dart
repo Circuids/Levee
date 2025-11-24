@@ -10,7 +10,7 @@ import 'paginator.dart';
 ///
 /// Example:
 /// ```dart
-/// LeveeBuilder<Product>(
+/// LeveeBuilder<Product, int>(
 ///   paginator: paginator,
 ///   builder: (context, state) {
 ///     if (state.status == PageStatus.loading && state.items.isEmpty) {
@@ -24,7 +24,7 @@ import 'paginator.dart';
 ///   },
 /// )
 /// ```
-class LeveeBuilder<T> extends StatefulWidget {
+class LeveeBuilder<T, K> extends StatefulWidget {
   /// Creates a [LeveeBuilder] that listens to paginator state changes.
   const LeveeBuilder({
     super.key,
@@ -33,16 +33,16 @@ class LeveeBuilder<T> extends StatefulWidget {
   });
 
   /// The paginator to listen to.
-  final Paginator<T, dynamic> paginator;
+  final Paginator<T, K> paginator;
 
   /// Builder function that receives the current page state.
   final Widget Function(BuildContext context, PageState<T> state) builder;
 
   @override
-  State<LeveeBuilder<T>> createState() => _LeveeBuilderState<T>();
+  State<LeveeBuilder<T, K>> createState() => _LeveeBuilderState<T, K>();
 }
 
-class _LeveeBuilderState<T> extends State<LeveeBuilder<T>> {
+class _LeveeBuilderState<T, K> extends State<LeveeBuilder<T, K>> {
   @override
   void initState() {
     super.initState();
@@ -50,7 +50,7 @@ class _LeveeBuilderState<T> extends State<LeveeBuilder<T>> {
   }
 
   @override
-  void didUpdateWidget(LeveeBuilder<T> oldWidget) {
+  void didUpdateWidget(LeveeBuilder<T, K> oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.paginator != widget.paginator) {
       oldWidget.paginator.removeListener(_onStateChanged);
@@ -185,7 +185,7 @@ class _LeveeCollectionViewState<T, K> extends State<LeveeCollectionView<T, K>> {
 
   @override
   Widget build(BuildContext context) {
-    return LeveeBuilder<T>(
+    return LeveeBuilder<T, K>(
       paginator: widget.paginator,
       builder: (context, state) {
         Widget content;
