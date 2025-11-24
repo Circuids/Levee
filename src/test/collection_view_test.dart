@@ -55,7 +55,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: LeveeBuilder<TestItem>(
+            body: LeveeBuilder<TestItem, int>(
               paginator: paginator,
               builder: (context, state) {
                 if (state.items.isEmpty && state.status == PageStatus.idle) {
@@ -93,7 +93,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: LeveeBuilder<TestItem>(
+            body: LeveeBuilder<TestItem, int>(
               paginator: paginator,
               builder: (context, state) {
                 if (state.items.isEmpty && state.status == PageStatus.idle) {
@@ -138,7 +138,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: LeveeBuilder<TestItem>(
+            body: LeveeBuilder<TestItem, int>(
               paginator: paginator,
               builder: (context, state) {
                 if (state.status == PageStatus.error) {
@@ -180,7 +180,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: LeveeBuilder<TestItem>(
+            body: LeveeBuilder<TestItem, int>(
               paginator: paginator,
               builder: (context, state) {
                 return Column(
