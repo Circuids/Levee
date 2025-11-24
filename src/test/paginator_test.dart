@@ -639,4 +639,159 @@ void main() {
       paginator.dispose();
     });
   });
+
+  group('Paginator List Mutations', () {
+    late Paginator<TestItem, int> paginator;
+    late MockDataSource<TestItem, int> dataSource;
+
+    setUp(() {
+      dataSource = MockDataSource((query) async {
+        final pageKey = query.pageKey ?? 0;
+        return PageData<TestItem, int>(
+          items: [
+            TestItem(pageKey, 'Item $pageKey'),
+            TestItem(pageKey + 1, 'Item ${pageKey + 1}'),
+          ],
+          nextPageKey: pageKey + 2,
+          isLastPage: false,
+        );
+      });
+
+      paginator = Paginator<TestItem, int>(
+        source: dataSource,
+        pageSize: 2,
+        cachePolicy: CachePolicy.networkOnly,
+      );
+    });
+
+    tearDown(() {
+      paginator.dispose();
+    });
+
+    test('updateItem replaces matching item', () async {
+      await paginator.loadInitial();
+      expect(paginator.state.items.length, 2);
+      expect(paginator.state.items[0].name, 'Item 0');
+
+      // Update first item
+      paginator.updateItem(
+        TestItem(0, 'Updated Item 0'),
+        (item) => item.id == 0,
+      );
+
+      expect(paginator.state.items.length, 2);
+      expect(paginator.state.items[0].name, 'Updated Item 0');
+      expect(paginator.state.items[1].name, 'Item 1');
+    });
+
+    test('updateItem does nothing if predicate matches no items', () async {
+      await paginator.loadInitial();
+      final originalLength = paginator.state.items.length;
+
+      paginator.updateItem(
+        TestItem(999, 'Non-existent'),
+        (item) => item.id == 999,
+      );
+
+      expect(paginator.state.items.length, originalLength);
+    });
+
+    test('removeItem removes matching items', () async {
+      await paginator.loadInitial();
+      expect(paginator.state.items.length, 2);
+
+      // Remove first item
+      paginator.removeItem((item) => item.id == 0);
+
+      expect(paginator.state.items.length, 1);
+      expect(paginator.state.items[0].id, 1);
+    });
+
+    test('removeItem removes multiple matching items', () async {
+      await paginator.loadInitial();
+      await paginator.loadNext();
+      expect(paginator.state.items.length, 4);
+
+      // Remove all even-numbered items
+      paginator.removeItem((item) => item.id % 2 == 0);
+
+      expect(paginator.state.items.length, 2);
+      expect(paginator.state.items.every((item) => item.id % 2 == 1), true);
+    });
+
+    test('removeItem does nothing if predicate matches no items', () async {
+      await paginator.loadInitial();
+      final originalLength = paginator.state.items.length;
+
+      paginator.removeItem((item) => item.id == 999);
+
+      expect(paginator.state.items.length, originalLength);
+    });
+
+    test('insertItem adds item at top by default', () async {
+      await paginator.loadInitial();
+      expect(paginator.state.items.length, 2);
+
+      final newItem = TestItem(99, 'New Item');
+      paginator.insertItem(newItem);
+
+      expect(paginator.state.items.length, 3);
+      expect(paginator.state.items[0].id, 99);
+      expect(paginator.state.items[0].name, 'New Item');
+    });
+
+    test('insertItem adds item at specified position', () async {
+      await paginator.loadInitial();
+      expect(paginator.state.items.length, 2);
+
+      final newItem = TestItem(99, 'New Item');
+      paginator.insertItem(newItem, position: 1);
+
+      expect(paginator.state.items.length, 3);
+      expect(paginator.state.items[1].id, 99);
+      expect(paginator.state.items[0].id, 0);
+      expect(paginator.state.items[2].id, 1);
+    });
+
+    test('insertItem clamps position to valid range', () async {
+      await paginator.loadInitial();
+      expect(paginator.state.items.length, 2);
+
+      // Try to insert at position 999 (should clamp to end)
+      final newItem = TestItem(99, 'New Item');
+      paginator.insertItem(newItem, position: 999);
+
+      expect(paginator.state.items.length, 3);
+      expect(paginator.state.items[2].id, 99);
+    });
+
+    test('insertItem works on empty list', () async {
+      // Don't load initial, start with empty list
+      expect(paginator.state.items.length, 0);
+
+      final newItem = TestItem(99, 'New Item');
+      paginator.insertItem(newItem);
+
+      expect(paginator.state.items.length, 1);
+      expect(paginator.state.items[0].id, 99);
+    });
+
+    test('mutations trigger notifyListeners', () async {
+      await paginator.loadInitial();
+      int notificationCount = 0;
+
+      paginator.addListener(() {
+        notificationCount++;
+      });
+
+      paginator.updateItem(TestItem(0, 'Updated'), (item) => item.id == 0);
+      expect(notificationCount, 1);
+
+      paginator.removeItem((item) => item.id == 1);
+      expect(notificationCount, 2);
+
+      paginator.insertItem(TestItem(99, 'New'));
+      expect(notificationCount, 3);
+    });
+  });
 }
