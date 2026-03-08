@@ -126,6 +126,7 @@ removeItem(pred)        ──┘   → notifyListeners() → UI rebuilds
 | `data/`  | Backend integration contract          | `DataSource`, `PageData`                    |
 | `cache/` | Cache abstraction + default impl      | `CacheStore`, `MemoryCacheStore`, `CachePolicy` |
 | `ui/`    | Flutter widgets                       | `LeveeBuilder`, `LeveeCollectionView`       |
+| `utils/` | Internal utilities (not public API)   | `Equals` class with `listEquals` and `listHash` |
 
 ## Cache Policy Behavior
 
