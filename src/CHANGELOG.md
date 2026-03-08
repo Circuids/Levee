@@ -1,3 +1,19 @@
+## 1.0.0
+
+**Stable Release**
+
+- **New**: `MergeMode` enum with `append` (default) and `replaceByKey` strategies
+  - `replaceByKey` uses a `keySelector` to replace existing items by key instead of duplicating
+  - O(n) merge performance using Map lookups
+- **New**: `mergeMode` and `keySelector` parameters on `Paginator`
+- **Changed**: `insertItem` parameter renamed from `position` to `index`
+- **Fixed**: `LeveeCollectionView` now properly handles paginator swap via `didUpdateWidget`
+- **Fixed**: `LeveeCollectionView` wraps non-scrollable states (`loading`, `error`, `empty`) in `SingleChildScrollView` so `RefreshIndicator` works correctly
+- **Fixed**: `LeveeCollectionView` shows loading indicator on initial `idle` state instead of an empty list
+- **Improved**: Added `isLoading` getter to `PageState` for convenience
+- **Improved**: Expanded test coverage (107 tests)
+- **Updated**: README with MergeMode documentation, mutation API examples, and clarification of scope
+
 ## 0.6.0
 
 **Breaking Change**

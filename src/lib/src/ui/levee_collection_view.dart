@@ -1,80 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'page.dart';
-import 'paginator.dart';
-
-/// Headless state listener for custom UI.
-///
-/// Use this widget when you want full control over the UI while still
-/// listening to paginator state changes.
-///
-/// Example:
-/// ```dart
-/// LeveeBuilder<Product, int>(
-///   paginator: paginator,
-///   builder: (context, state) {
-///     if (state.status == PageStatus.loading && state.items.isEmpty) {
-///       return CircularProgressIndicator();
-///     }
-///
-///     return ListView.builder(
-///       itemCount: state.items.length,
-///       itemBuilder: (context, index) => ProductCard(state.items[index]),
-///     );
-///   },
-/// )
-/// ```
-class LeveeBuilder<T, K> extends StatefulWidget {
-  /// Creates a [LeveeBuilder] that listens to paginator state changes.
-  const LeveeBuilder({
-    super.key,
-    required this.paginator,
-    required this.builder,
-  });
-
-  /// The paginator to listen to.
-  final Paginator<T, K> paginator;
-
-  /// Builder function that receives the current page state.
-  final Widget Function(BuildContext context, PageState<T> state) builder;
-
-  @override
-  State<LeveeBuilder<T, K>> createState() => _LeveeBuilderState<T, K>();
-}
-
-class _LeveeBuilderState<T, K> extends State<LeveeBuilder<T, K>> {
-  @override
-  void initState() {
-    super.initState();
-    widget.paginator.addListener(_onStateChanged);
-  }
-
-  @override
-  void didUpdateWidget(LeveeBuilder<T, K> oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.paginator != widget.paginator) {
-      oldWidget.paginator.removeListener(_onStateChanged);
-      widget.paginator.addListener(_onStateChanged);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.paginator.removeListener(_onStateChanged);
-    super.dispose();
-  }
-
-  void _onStateChanged() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return widget.builder(context, widget.paginator.state);
-  }
-}
+import '../core/page_state.dart';
+import '../core/paginator.dart';
+import 'levee_builder.dart';
 
 /// Full-featured list/grid widget with infinite scroll and pull-to-refresh.
 ///
@@ -163,6 +91,14 @@ class _LeveeCollectionViewState<T, K> extends State<LeveeCollectionView<T, K>> {
   }
 
   @override
+  void didUpdateWidget(LeveeCollectionView<T, K> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.paginator != widget.paginator) {
+      widget.paginator.loadInitial();
+    }
+  }
+
+  @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
@@ -190,8 +126,10 @@ class _LeveeCollectionViewState<T, K> extends State<LeveeCollectionView<T, K>> {
       builder: (context, state) {
         Widget content;
 
-        // Initial loading state
-        if (state.status == PageStatus.loading && state.items.isEmpty) {
+        // Initial loading state (idle = loadInitial in progress, loading = next page)
+        if (state.items.isEmpty &&
+            (state.status == PageStatus.idle ||
+                state.status == PageStatus.loading)) {
           content = _buildLoading(context);
         }
         // Error state with no cached data
@@ -209,9 +147,22 @@ class _LeveeCollectionViewState<T, K> extends State<LeveeCollectionView<T, K>> {
 
         // Wrap with RefreshIndicator if enabled
         if (widget.enablePullToRefresh) {
+          // RefreshIndicator requires a scrollable child.
+          // _buildList returns ScrollView subclasses (ListView/GridView),
+          // but loading/error/empty states are non-scrollable — wrap them.
+          final scrollableContent = content is ScrollView
+              ? content
+              : SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: SizedBox(
+                    height: MediaQuery.of(context).size.height,
+                    child: content,
+                  ),
+                );
+
           return RefreshIndicator(
             onRefresh: _onRefresh,
-            child: content,
+            child: scrollableContent,
           );
         }
 

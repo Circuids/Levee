@@ -745,7 +745,7 @@ void main() {
       expect(paginator.state.items.length, 2);
 
       final newItem = TestItem(99, 'New Item');
-      paginator.insertItem(newItem, position: 1);
+      paginator.insertItem(newItem, index: 1);
 
       expect(paginator.state.items.length, 3);
       expect(paginator.state.items[1].id, 99);
@@ -759,7 +759,7 @@ void main() {
 
       // Try to insert at position 999 (should clamp to end)
       final newItem = TestItem(99, 'New Item');
-      paginator.insertItem(newItem, position: 999);
+      paginator.insertItem(newItem, index: 999);
 
       expect(paginator.state.items.length, 3);
       expect(paginator.state.items[2].id, 99);

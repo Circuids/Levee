@@ -1,131 +1,17 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
-import 'cache_store.dart';
-import 'data_source.dart';
-import 'filter.dart';
-import 'page.dart';
-
-/// Retry configuration for handling transient failures.
-///
-/// Example:
-/// ```dart
-/// RetryPolicy(maxAttempts: 3)  // Basic retry
-/// RetryPolicy.exponential(maxAttempts: 5)  // Exponential backoff
-/// ```
-class RetryPolicy {
-  /// Creates a retry policy with the given configuration.
-  const RetryPolicy({
-    this.maxAttempts = 3,
-    this.delay = const Duration(seconds: 1),
-    this.maxDelay = const Duration(seconds: 30),
-    this.retryIf,
-  });
-
-  /// Maximum number of retry attempts.
-  final int maxAttempts;
-
-  /// Initial delay between retries.
-  final Duration delay;
-
-  /// Maximum delay cap for exponential backoff.
-  final Duration maxDelay;
-
-  /// Optional conditional retry. If provided, only retry if this returns true.
-  final bool Function(Exception)? retryIf;
-
-  /// Helper constructor for exponential backoff retry policy.
-  const RetryPolicy.exponential({
-    this.maxAttempts = 3,
-    Duration initialDelay = const Duration(seconds: 1),
-  })  : delay = initialDelay,
-        maxDelay = const Duration(seconds: 30),
-        retryIf = null;
-}
-
-/// Defines cache behavior strategies.
-enum CachePolicy {
-  /// Show cache immediately, fetch network in background to update.
-  cacheFirst,
-
-  /// Try network first, fallback to cache on error.
-  networkFirst,
-
-  /// Only use cache, never fetch network (offline mode).
-  cacheOnly,
-
-  /// Always fetch network, bypass cache.
-  networkOnly,
-}
-
-/// Immutable pagination state.
-///
-/// Exposes current items, status, errors, and loading flags.
-class PageState<T> {
-  /// Creates a page state with the given values.
-  const PageState({
-    required this.items,
-    required this.status,
-    this.error,
-    required this.hasMore,
-    this.isFromCache = false,
-    this.isRefreshing = false,
-    this.retryAttempt,
-  });
-
-  /// The list of items loaded so far.
-  final List<T> items;
-
-  /// Current pagination status.
-  final PageStatus status;
-
-  /// Error that occurred during loading (if any).
-  final Exception? error;
-
-  /// Whether there are more pages to load.
-  final bool hasMore;
-
-  /// True if the current data came from cache.
-  final bool isFromCache;
-
-  /// True if a background fetch is in progress (for cacheFirst policy).
-  final bool isRefreshing;
-
-  /// Current retry attempt number (null if no retry in progress).
-  final int? retryAttempt;
-
-  /// Creates an initial empty state.
-  factory PageState.initial() => PageState<T>(
-        items: const [],
-        status: PageStatus.idle,
-        hasMore: true,
-      );
-
-  /// Creates a copy of this state with the given fields replaced.
-  PageState<T> copyWith({
-    List<T>? items,
-    PageStatus? status,
-    Exception? error,
-    bool? hasMore,
-    bool? isFromCache,
-    bool? isRefreshing,
-    int? retryAttempt,
-    bool clearError = false,
-  }) {
-    return PageState<T>(
-      items: items ?? this.items,
-      status: status ?? this.status,
-      error: clearError ? null : (error ?? this.error),
-      hasMore: hasMore ?? this.hasMore,
-      isFromCache: isFromCache ?? this.isFromCache,
-      isRefreshing: isRefreshing ?? this.isRefreshing,
-      retryAttempt: retryAttempt,
-    );
-  }
-}
+import '../cache/cache_policy.dart';
+import '../cache/cache_store.dart';
+import '../data/data_source.dart';
+import '../data/page_data.dart';
+import '../query/filter_query.dart';
+import '../query/page_query.dart';
+import 'merge_mode.dart';
+import 'page_state.dart';
+import 'retry_policy.dart';
 
 /// Core pagination engine with state management.
 ///
@@ -151,7 +37,12 @@ class Paginator<T, K> extends ChangeNotifier {
     this.cachePolicy = CachePolicy.cacheFirst,
     this.retryPolicy,
     this.initialFilter,
-  }) {
+    this.mergeMode = MergeMode.append,
+    this.keySelector,
+  }) : assert(
+          mergeMode != MergeMode.replaceByKey || keySelector != null,
+          'keySelector is required when using MergeMode.replaceByKey',
+        ) {
     _currentFilter = initialFilter;
   }
 
@@ -172,6 +63,12 @@ class Paginator<T, K> extends ChangeNotifier {
 
   /// Initial filter to apply on first load.
   final FilterQuery? initialFilter;
+
+  /// How incoming page items are merged with existing items.
+  final MergeMode mergeMode;
+
+  /// Extracts a unique key from an item for [MergeMode.replaceByKey].
+  final Object Function(T item)? keySelector;
 
   /// Current pagination state.
   PageState<T> get state => _state;
@@ -243,6 +140,42 @@ class Paginator<T, K> extends ChangeNotifier {
     _isLoading = false; // Cancel any in-progress load
     await loadInitial();
   }
+
+  // ---------------------------------------------------------------------------
+  // Local mutations (operate only on in-memory list, never trigger network)
+  // ---------------------------------------------------------------------------
+
+  /// Inserts an item at the specified position (default: beginning of list).
+  void insertItem(T item, {int index = 0}) {
+    final items = List<T>.from(_state.items);
+    final clampedIndex = index.clamp(0, items.length);
+    items.insert(clampedIndex, item);
+    _state = _state.copyWith(items: items);
+    notifyListeners();
+  }
+
+  /// Updates the first item matching [predicate] with [item].
+  void updateItem(T item, bool Function(T existing) predicate) {
+    final items = List<T>.from(_state.items);
+    final idx = items.indexWhere(predicate);
+    if (idx != -1) {
+      items[idx] = item;
+      _state = _state.copyWith(items: items);
+      notifyListeners();
+    }
+  }
+
+  /// Removes all items matching [predicate].
+  void removeItem(bool Function(T existing) predicate) {
+    final items = List<T>.from(_state.items);
+    items.removeWhere(predicate);
+    _state = _state.copyWith(items: items);
+    notifyListeners();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
 
   /// Load a page with the configured cache policy.
   Future<void> _loadPage({required bool isInitial}) async {
@@ -398,14 +331,28 @@ class Paginator<T, K> extends ChangeNotifier {
     }
   }
 
-  /// Update state from a fetched page.
+  /// Update state from a fetched page, applying the configured [mergeMode].
   void _updateStateFromPage(
     PageData<T, K> page, {
     required bool isFromCache,
     required bool isInitial,
     bool clearRefreshing = false,
   }) {
-    final newItems = isInitial ? page.items : [..._state.items, ...page.items];
+    final List<T> newItems;
+
+    if (isInitial) {
+      newItems = page.items;
+    } else {
+      switch (mergeMode) {
+        case MergeMode.append:
+          newItems = [..._state.items, ...page.items];
+          break;
+        case MergeMode.replaceByKey:
+          newItems = _mergeByKey(_state.items, page.items);
+          break;
+      }
+    }
+
     _nextPageKey = page.nextPageKey;
 
     _state = PageState(
@@ -417,6 +364,35 @@ class Paginator<T, K> extends ChangeNotifier {
       retryAttempt: null,
     );
     notifyListeners();
+  }
+
+  /// Merge incoming items with existing items using key-based replacement.
+  ///
+  /// Uses a Map for O(n) lookup performance.
+  /// Items order is preserved — existing items keep their position,
+  /// new items are appended at the end.
+  List<T> _mergeByKey(List<T> existing, List<T> incoming) {
+    final selector = keySelector!;
+    final keyToIndex = <Object, int>{};
+    for (var i = 0; i < existing.length; i++) {
+      keyToIndex[selector(existing[i])] = i;
+    }
+
+    final result = List<T>.from(existing);
+    final toAppend = <T>[];
+
+    for (final item in incoming) {
+      final key = selector(item);
+      final existingIndex = keyToIndex[key];
+      if (existingIndex != null) {
+        result[existingIndex] = item; // Replace in-place
+      } else {
+        toAppend.add(item);
+      }
+    }
+
+    result.addAll(toAppend);
+    return result;
   }
 
   /// Handle error during page load.
@@ -438,68 +414,5 @@ class Paginator<T, K> extends ChangeNotifier {
     };
     final jsonString = jsonEncode(keyParts);
     return base64Encode(utf8.encode(jsonString));
-  }
-
-  /// Updates an item in the current list.
-  ///
-  /// Finds the first item matching [predicate] and replaces it with [item].
-  /// This is useful when you've already updated the backend and want to
-  /// reflect the change in the UI without calling [refresh].
-  ///
-  /// Example:
-  /// ```dart
-  /// // After updating Firestore
-  /// await postDoc.update({'likes': likes + 1});
-  /// paginator.updateItem(
-  ///   post.copyWith(likes: likes + 1),
-  ///   (p) => p.id == post.id,
-  /// );
-  /// ```
-  void updateItem(T item, bool Function(T) predicate) {
-    final items = List<T>.from(_state.items);
-    final index = items.indexWhere(predicate);
-    if (index != -1) {
-      items[index] = item;
-      _state = _state.copyWith(items: items);
-      notifyListeners();
-    }
-  }
-
-  /// Removes an item from the current list.
-  ///
-  /// Removes all items matching [predicate]. This is useful when you've
-  /// already deleted from the backend and want to update the UI without
-  /// calling [refresh].
-  ///
-  /// Example:
-  /// ```dart
-  /// // After deleting from Firestore
-  /// await postDoc.delete();
-  /// paginator.removeItem((post) => post.id == postId);
-  /// ```
-  void removeItem(bool Function(T) predicate) {
-    final items = List<T>.from(_state.items);
-    items.removeWhere(predicate);
-    _state = _state.copyWith(items: items);
-    notifyListeners();
-  }
-
-  /// Inserts an item at the specified position (default: top of list).
-  ///
-  /// This is useful when you've created a new item in the backend and want
-  /// to add it to the UI without calling [refresh].
-  ///
-  /// Example:
-  /// ```dart
-  /// // After creating in Firestore
-  /// final newPost = await postsCollection.add(data);
-  /// paginator.insertItem(Post.fromFirestore(newPost), position: 0);
-  /// ```
-  void insertItem(T item, {int position = 0}) {
-    final items = List<T>.from(_state.items);
-    final clampedPos = position.clamp(0, items.length);
-    items.insert(clampedPos, item);
-    _state = _state.copyWith(items: items);
-    notifyListeners();
   }
 }

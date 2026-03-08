@@ -129,7 +129,7 @@ class _PostsListScreenState extends State<PostsListScreen> {
     );
 
     // Add to top of list using mutation
-    _paginator.insertItem(newPost, position: 0);
+    _paginator.insertItem(newPost, index: 0);
 
     ScaffoldMessenger.of(
       context,
@@ -159,7 +159,7 @@ class _PostsListScreenState extends State<PostsListScreen> {
           label: 'Undo',
           onPressed: () {
             // Re-insert the post
-            _paginator.insertItem(post, position: 0);
+            _paginator.insertItem(post, index: 0);
           },
         ),
       ),
