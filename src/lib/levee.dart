@@ -9,7 +9,7 @@
 /// // 1. Implement DataSource
 /// class ProductDataSource implements DataSource<Product, int> {
 ///   @override
-///   Future<Page<Product, int>> fetch(PageQuery<int> query) async {
+///   Future<PageData<Product, int>> fetch(PageQuery<int> query) async {
 ///     // Fetch from your backend
 ///   }
 /// }
@@ -28,19 +28,26 @@
 /// ```
 library;
 
-// Core contracts
-export 'src/page.dart' show PageData, PageQuery, PageStatus;
-export 'src/filter.dart'
+// Core
+export 'src/core/paginator.dart' show Paginator;
+export 'src/core/page_state.dart' show PageState, PageStatus;
+export 'src/core/merge_mode.dart' show MergeMode;
+export 'src/core/retry_policy.dart' show RetryPolicy;
+
+// Query
+export 'src/query/page_query.dart' show PageQuery;
+export 'src/query/filter_query.dart'
     show FilterQuery, FilterField, FilterOperation, SortField;
 
-// Cache layer
-export 'src/cache_store.dart' show CacheStore, MemoryCacheStore;
+// Data
+export 'src/data/page_data.dart' show PageData;
+export 'src/data/data_source.dart' show DataSource;
 
-// Backend integration
-export 'src/data_source.dart' show DataSource;
+// Cache
+export 'src/cache/cache_store.dart' show CacheStore;
+export 'src/cache/memory_cache_store.dart' show MemoryCacheStore;
+export 'src/cache/cache_policy.dart' show CachePolicy;
 
-// Paginator
-export 'src/paginator.dart' show Paginator, PageState, RetryPolicy, CachePolicy;
-
-// UI widgets
-export 'src/collection_view.dart' show LeveeBuilder, LeveeCollectionView;
+// UI
+export 'src/ui/levee_builder.dart' show LeveeBuilder;
+export 'src/ui/levee_collection_view.dart' show LeveeCollectionView;
