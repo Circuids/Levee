@@ -25,6 +25,7 @@
 - [Design Philosophy](#design-philosophy-)
 - [Contributing](#contributing-)
 - [License](#license-)
+- [Also by Circuids](#also-by-circuids)
 - [Support](#support-)
 
 ---
@@ -50,7 +51,7 @@
 
 ```yaml
 dependencies:
-  levee: ^0.6.0
+  levee: ^1.0.0+1
 ```
 
 ### 2. Define Your Data Source
@@ -205,7 +206,7 @@ paginator.updateCachePolicy(CachePolicy.networkFirst);
 
 ---
 
-## Retry Logic 🔄
+## Retry Logic
 
 Levee includes exponential backoff retry for transient failures:
 
@@ -228,7 +229,7 @@ final paginator = Paginator<User, int>(
 
 ---
 
-## List Mutations ✏️
+## List Mutations
 
 Update the paginated list instantly without refetching from the backend. Perfect for Firestore or when you already have the updated data in hand.
 
@@ -272,10 +273,10 @@ paginator.insertItem(
 ```
 
 **Why use mutations?**
-- ⚡ **Instant UI updates** - No waiting for network calls
-- 💰 **Save money** - Avoid expensive Firestore reads after mutations
-- 🎯 **Better UX** - Immediate feedback for user actions
-- 🧠 **Smart** - You already have the data after create/update/delete
+- **Instant UI updates** - No waiting for network calls
+- **Save money** - Avoid expensive Firestore reads after mutations
+- **Better UX** - Immediate feedback for user actions
+- **Smart** - You already have the data after create/update/delete
 
 **Note:** These methods only update the local list. They don't sync with the backend—you should call them **after** your backend operation succeeds.
 
@@ -664,7 +665,15 @@ Contributions welcome! Fork the repo, create a feature branch, add tests, ensure
 
 ## License 
 
-BSD-3-Clause License. Copyright (c) 2025 Circuids. See [LICENSE](LICENSE) for details.
+BSD-3-Clause License. Copyright (c) 2026 Circuids. See [LICENSE](LICENSE) for details.
+
+---
+
+## Also by Circuids
+
+| Package | Description |
+|---------|-------------|
+| [**Fairy**](https://github.com/Circuids/Fairy) | A lightweight MVVM framework for Flutter with strongly-typed reactive data binding, commands, and dependency injection — no code generation required. |
 
 ---
 
