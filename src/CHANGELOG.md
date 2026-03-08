@@ -1,3 +1,7 @@
+## 1.0.0+1
+
+- **New**: Documentation updates for 1.0.0 release, including README and API docs
+
 ## 1.0.0
 
 **Stable Release**

@@ -29,6 +29,7 @@ Levee manages **pagination state** — page loading, caching, retry policies, fi
 - [Design Philosophy](#design-philosophy-)
 - [Contributing](#contributing-)
 - [License](#license-)
+- [Also by Circuids](#also-by-circuids)
 - [Support](#support-)
 
 ---
@@ -50,13 +51,13 @@ Levee manages **pagination state** — page loading, caching, retry policies, fi
 
 ---
 
-## Quick Start 🚀
+## Quick Start
 
 ### 1. Add to pubspec.yaml
 
 ```yaml
 dependencies:
-  levee: ^1.0.0
+  levee: ^1.0.0+1
 ```
 
 ### 2. Define Your Data Source
@@ -193,7 +194,7 @@ LeveeCollectionView<User, int>(
 
 ---
 
-## MergeMode 🔀
+## MergeMode
 
 By default, Levee **appends** new page items to the existing list. v1 introduces `MergeMode.replaceByKey` for key-based deduplication.
 
@@ -271,7 +272,7 @@ paginator.updateCachePolicy(CachePolicy.networkFirst);
 
 ---
 
-## Retry Logic 🔄
+## Retry Logic
 
 Levee includes exponential backoff retry for transient failures:
 
@@ -679,7 +680,15 @@ Contributions welcome! Fork the repo, create a feature branch, add tests, ensure
 
 ## License 
 
-BSD-3-Clause License. Copyright (c) 2025 Circuids. See [LICENSE](LICENSE) for details.
+BSD-3-Clause License. Copyright (c) 2026 Circuids. See [LICENSE](LICENSE) for details.
+
+---
+
+## Also by Circuids
+
+| Package | Description |
+|---------|-------------|
+| [**Fairy**](https://github.com/Circuids/Fairy) | A lightweight MVVM framework for Flutter with strongly-typed reactive data binding, commands, and dependency injection — no code generation required. |
 
 ---
 
