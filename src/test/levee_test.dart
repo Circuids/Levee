@@ -20,5 +20,6 @@ void main() {
     expect(CachePolicy, isNotNull);
     expect(LeveeBuilder, isNotNull);
     expect(LeveeCollectionView, isNotNull);
+    expect(MergeMode, isNotNull);
   });
 }
