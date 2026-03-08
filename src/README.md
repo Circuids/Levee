@@ -10,12 +10,16 @@
 
 **Levee** is a lightweight, high-performance, dependency-free pagination engine for Flutter that brings **cache-first architecture** and **generic page key support** to your applications. Whether you're paginating REST APIs with offset/limit, Firestore with cursors, or custom pagination schemes, Levee provides a unified, flexible foundation.
 
+Levee manages **pagination state** — page loading, caching, retry policies, filtering, and local list mutations. It does **not** manage backend synchronization, distributed data consistency, or offline conflict resolution.
+
 ---
 
 ## Table of Contents
 
 - [Features](#features-)
 - [Quick Start](#quick-start-)
+- [MergeMode](#mergemode-)
+- [Local Mutations](#local-mutations-)
 - [Cache Policies](#cache-policies-)
 - [Retry Logic](#retry-logic-)
 - [Filtering & Sorting](#filtering--sorting-)
@@ -41,6 +45,8 @@
 - **State Management**: Built on `ChangeNotifier` for seamless Flutter integration
 - **TTL Support**: Time-based cache expiration in `MemoryCacheStore`
 - **Type-Safe**: Full generic support with `PageData<T,K>` and `DataSource<T,K>`
+- **MergeMode**: Key-based item replacement for deduplication across pages
+- **Local Mutations**: `insertItem`, `updateItem`, `removeItem` for instant UI updates
 
 ---
 
@@ -50,7 +56,7 @@
 
 ```yaml
 dependencies:
-  levee: ^0.6.0
+  levee: ^1.0.0
 ```
 
 ### 2. Define Your Data Source
@@ -184,6 +190,66 @@ LeveeCollectionView<User, int>(
   ),
 )
 ```
+
+---
+
+## MergeMode 🔀
+
+By default, Levee **appends** new page items to the existing list. v1 introduces `MergeMode.replaceByKey` for key-based deduplication.
+
+### Append (default)
+
+```dart
+final paginator = Paginator<Product, int>(
+  source: productDataSource,
+  mergeMode: MergeMode.append, // default
+);
+```
+
+New items are simply appended. Duplicates are kept.
+
+### ReplaceByKey
+
+```dart
+final paginator = Paginator<Product, int>(
+  source: productDataSource,
+  mergeMode: MergeMode.replaceByKey,
+  keySelector: (product) => product.id,
+);
+```
+
+When loading subsequent pages:
+- If an incoming item's key matches an existing item, the existing item is **replaced in-place**.
+- If no match, the item is **appended** at the end.
+- Item order is **preserved** — no reordering occurs.
+
+> **Note:** `keySelector` is **required** when using `MergeMode.replaceByKey`.
+> There is no deep field merging or conflict resolution — the incoming item fully replaces the existing one.
+
+---
+
+## Local Mutations 🔧
+
+Paginator supports local list mutations for **instant UI responsiveness**. These operate only on the in-memory list and **never trigger network requests**.
+
+```dart
+// Insert at beginning (default)
+paginator.insertItem(newProduct);
+
+// Insert at specific position
+paginator.insertItem(newProduct, index: 3);
+
+// Update first matching item
+paginator.updateItem(
+  updatedProduct,
+  (existing) => existing.id == updatedProduct.id,
+);
+
+// Remove all matching items
+paginator.removeItem((product) => product.id == deletedId);
+```
+
+All mutations are synchronous and notify listeners immediately.
 
 ---
 
@@ -505,6 +571,8 @@ class Paginator<T, K> extends ChangeNotifier {
     CachePolicy cachePolicy = CachePolicy.cacheFirst,
     RetryPolicy? retryPolicy,
     FilterQuery? initialFilter,
+    MergeMode mergeMode = MergeMode.append,
+    Object Function(T item)? keySelector,
   });
 
   // State
@@ -517,9 +585,9 @@ class Paginator<T, K> extends ChangeNotifier {
   Future<void> updateFilter(FilterQuery? filter);
   
   // List Mutations
+  void insertItem(T item, {int index = 0});
   void updateItem(T item, bool Function(T) predicate);
   void removeItem(bool Function(T) predicate);
-  void insertItem(T item, {int position = 0});
   
   void dispose();
 }
