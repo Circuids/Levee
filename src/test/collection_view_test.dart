@@ -437,6 +437,225 @@ void main() {
 
       paginator.dispose();
     });
+
+    testWidgets('shows loading state on initial idle state (not empty list)',
+        (WidgetTester tester) async {
+      // Bug fix: loadInitial() first emits idle with empty items.
+      // The widget should show loading, not an empty ListView.
+      final dataSource = MockDataSource([
+        [TestItem(1, 'Item 1')],
+      ]);
+
+      final paginator = Paginator<TestItem, int>(
+        source: dataSource,
+        pageSize: 1,
+        cachePolicy: CachePolicy.networkOnly,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LeveeCollectionView<TestItem, int>(
+              paginator: paginator,
+              itemBuilder: (context, item, index) {
+                return ListTile(title: Text(item.name));
+              },
+            ),
+          ),
+        ),
+      );
+
+      // On the very first frame (before async fetch completes),
+      // state is idle with empty items — should show loading indicator
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(ListView), findsNothing);
+
+      await tester.pumpAndSettle();
+      paginator.dispose();
+    });
+
+    testWidgets(
+        'loads new data when paginator instance changes via didUpdateWidget',
+        (WidgetTester tester) async {
+      // Bug fix: swapping paginator instance should trigger loadInitial on the new one.
+      final dataSource1 = MockDataSource([
+        [TestItem(1, 'From Source 1')],
+      ]);
+      final dataSource2 = MockDataSource([
+        [TestItem(2, 'From Source 2')],
+      ]);
+
+      final paginator1 = Paginator<TestItem, int>(
+        source: dataSource1,
+        pageSize: 1,
+        cachePolicy: CachePolicy.networkOnly,
+      );
+      final paginator2 = Paginator<TestItem, int>(
+        source: dataSource2,
+        pageSize: 1,
+        cachePolicy: CachePolicy.networkOnly,
+      );
+
+      // Stateful wrapper to swap paginators
+      late StateSetter outerSetState;
+      var currentPaginator = paginator1;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                outerSetState = setState;
+                return LeveeCollectionView<TestItem, int>(
+                  paginator: currentPaginator,
+                  itemBuilder: (context, item, index) {
+                    return ListTile(title: Text(item.name));
+                  },
+                  enablePullToRefresh: false,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      expect(find.text('From Source 1'), findsOneWidget);
+      expect(dataSource1.fetchCallCount, 1);
+
+      // Swap to paginator2
+      outerSetState(() {
+        currentPaginator = paginator2;
+      });
+      await tester.pumpAndSettle();
+
+      // Should now show data from paginator2
+      expect(find.text('From Source 2'), findsOneWidget);
+      expect(dataSource2.fetchCallCount, 1);
+
+      paginator1.dispose();
+      paginator2.dispose();
+    });
+
+    testWidgets('RefreshIndicator works on error state',
+        (WidgetTester tester) async {
+      // Bug fix: RefreshIndicator needs a scrollable child.
+      // Error/empty/loading states are non-scrollable, so they must be wrapped.
+      int callCount = 0;
+      final paginator = Paginator<TestItem, int>(
+        source: DataSourceAdapter<TestItem, int>(
+          fetchPage: (query) async {
+            callCount++;
+            if (callCount == 1) {
+              throw Exception('Network error');
+            }
+            return PageData<TestItem, int>(
+              items: [TestItem(1, 'Recovered Item')],
+              isLastPage: true,
+            );
+          },
+        ),
+        pageSize: 2,
+        cachePolicy: CachePolicy.networkOnly,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LeveeCollectionView<TestItem, int>(
+              paginator: paginator,
+              enablePullToRefresh: true,
+              itemBuilder: (context, item, index) {
+                return ListTile(title: Text(item.name));
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Should be in error state with RefreshIndicator wrapping scrollable content
+      expect(find.byType(RefreshIndicator), findsOneWidget);
+      // The error state content should be inside a SingleChildScrollView
+      expect(find.byType(SingleChildScrollView), findsOneWidget);
+      // No crash from RefreshIndicator — the widget tree is valid
+
+      paginator.dispose();
+    });
+
+    testWidgets('RefreshIndicator works on empty state',
+        (WidgetTester tester) async {
+      final dataSource = MockDataSource([
+        [], // Empty page
+      ]);
+
+      final paginator = Paginator<TestItem, int>(
+        source: dataSource,
+        pageSize: 10,
+        cachePolicy: CachePolicy.networkOnly,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LeveeCollectionView<TestItem, int>(
+              paginator: paginator,
+              enablePullToRefresh: true,
+              itemBuilder: (context, item, index) {
+                return ListTile(title: Text(item.name));
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Empty state should be wrapped in SingleChildScrollView for RefreshIndicator
+      expect(find.byType(RefreshIndicator), findsOneWidget);
+      expect(find.byType(SingleChildScrollView), findsOneWidget);
+      expect(find.text('No items found'), findsOneWidget);
+
+      paginator.dispose();
+    });
+
+    testWidgets('RefreshIndicator does not double-wrap scrollable list content',
+        (WidgetTester tester) async {
+      final dataSource = MockDataSource([
+        [TestItem(1, 'Item 1'), TestItem(2, 'Item 2')],
+      ]);
+
+      final paginator = Paginator<TestItem, int>(
+        source: dataSource,
+        pageSize: 2,
+        cachePolicy: CachePolicy.networkOnly,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LeveeCollectionView<TestItem, int>(
+              paginator: paginator,
+              enablePullToRefresh: true,
+              itemBuilder: (context, item, index) {
+                return ListTile(title: Text(item.name));
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // List content (ListView) should NOT be wrapped in SingleChildScrollView
+      expect(find.byType(RefreshIndicator), findsOneWidget);
+      expect(find.byType(ListView), findsOneWidget);
+      expect(find.byType(SingleChildScrollView), findsNothing);
+
+      paginator.dispose();
+    });
   });
 }
 
